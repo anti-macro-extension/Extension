@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Keyboard & Mouse CSV Capture",
+  "version": "0.2.0",
+  "description": "웹에서 키보드(물리 이벤트+텍스트 커밋)와 마우스 좌표를 수집해 CSV로 내보냅니다.",
+  "permissions": ["downloads"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html" },
+  "options_ui": { "page": "popup.html", "open_in_tab": true },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["keyboard.js", "mouse.js"],
+      "run_at": "document_start"
+    }
+  ]
+}
