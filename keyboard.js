@@ -1,121 +1,92 @@
-// === keyboard.js — keydown/keyup + IME 보정 + 커밋된 문자 추출 ===
 (() => {
-  const BUF_MAX   = 64;
-  const FLUSH_MS  = 200;
-  const CAPTURE_REPEAT = false;
+  if (window.__mouseCsvRecorderLoaded) return;
+  window.__mouseCsvRecorderLoaded = true;
 
-  const buf = [];
+  // ---- 설정 로드 ----
+  let enabledSampling = true;   // true -> 약 20Hz, false -> ~60Hz
+  let moveThrottleMs = 50;
+  let minStep2px = true;        // 2px 미만 이동 무시
 
-  // ----- IME 'Process' 복원(US 레이아웃 기준) -----
-  function fromCodeToChar(code, shift) {
-    const m1 = /^Key([A-Z])$/.exec(code);
-    if (m1) return shift ? m1[1] : m1[1].toLowerCase();
-    const digit = {
-      Digit1:["1","!"], Digit2:["2","@"], Digit3:["3","#"], Digit4:["4","$"],
-      Digit5:["5","%"], Digit6:["6","^"], Digit7:["7","&"], Digit8:["8","*"],
-      Digit9:["9","("], Digit0:["0",")"],
-    };
-    if (code in digit) return digit[code][shift ? 1 : 0];
-    const sym = {
-      Minus:["-","_"], Equal:["=","+"],
-      BracketLeft:["[","{"], BracketRight:["]","}"],
-      Backslash:["\\","|"],
-      Semicolon:[";",":"], Quote:["'",'"'],
-      Comma:[",","<"], Period:[".",">"], Slash:["/","?"],
-      Backquote:["`","~"],
-      Space:[" "," "],
-    };
-    if (code in sym) return sym[code][shift ? 1 : 0];
-    return "";
-  }
+  chrome.storage.local.get({ throttleMove: true, minStep2px: true }, (res) => {
+    enabledSampling = !!res.throttleMove;
+    moveThrottleMs = enabledSampling ? 50 : 16;
+    minStep2px = !!res.minStep2px;
+  });
 
-  // 민감 입력 제외(원하면 끄세요)
-  function isSensitiveFocused() {
-    const el = document.activeElement;
-    if (!el) return false;
-    const tag = el.tagName?.toLowerCase();
-    if (tag === "input") {
-      const type = (el.getAttribute("type") || "").toLowerCase();
-      if (type === "password") return true;
-    }
-    if (el.isContentEditable) return true;
-    return false;
-  }
-
-  function normalizeKey(ev) {
-    if (ev.key && ev.key !== "Process") return ev.key;
-    const g = fromCodeToChar(ev.code || "", ev.shiftKey);
-    return g || (ev.key || "");
-  }
-
-  function pushRow(row) {
-    buf.push(row);
-    if (buf.length >= BUF_MAX) flush();
-  }
-
-  // ---- 물리 키(keydown/keyup) ----
-  function onKey(ev) {
-    if (!CAPTURE_REPEAT && ev.repeat) return;
-    if (ev.type === "keydown" && ev.isComposing) return; // keydown만 필터
-    if (isSensitiveFocused()) return;
-
-    const k = normalizeKey(ev);
-    if (!k) return;
-
-    pushRow({
-      timestamp: Date.now(),   // ms 정수 — 저장 자체는 정확
-      key: k,
-      type: ev.type            // 'keydown' | 'keyup'
-    });
-  }
-
-  // ---- 커밋된 문자(IME 포함) ----
-  // 최종으로 입력칸에 들어간 문자/문자열을 잡아 별도 이벤트로 보낸다.
-  function onBeforeInput(e) {
-    // 참고용: e.inputType, e.data
-    // 여기선 기록하지 않고, 실제 커밋이 일어난 input에서 기록
-  }
-  function onInput(e) {
-    if (isSensitiveFocused()) return;
-    // 문자열이 커밋될 때만
-    if (e instanceof InputEvent && typeof e.data === "string" && e.data.length > 0) {
-      pushRow({
-        timestamp: Date.now(),
-        key: e.data,           // 실제 커밋된 문자열
-        type: "text"           // 구분용: 텍스트 커밋 이벤트
-      });
-    }
-  }
-  function onCompositionEnd(e) {
-    // 일부 입력기에서 compositionend 시점에 commit 문자열이 e.data로 옴
-    if (isSensitiveFocused()) return;
-    if (typeof e.data === "string" && e.data.length > 0) {
-      pushRow({
-        timestamp: Date.now(),
-        key: e.data,
-        type: "text"
-      });
+  // ---- 안전 전송 ----
+  function safeSend(msg) {
+    if (!chrome || !chrome.runtime || !chrome.runtime.id) return false;
+    try {
+      chrome.runtime.sendMessage(msg);
+      return true;
+    } catch (e) {
+      // 확장 리로드 후 구스크립트의 전송 시 여기로 들어옴
+      detachAll();
+      return false;
     }
   }
 
-  function safeSend(kind, payload) {
-    if (!chrome?.runtime?.id) return;
-    try { chrome.runtime.sendMessage({ kind, payload }); } catch {}
-  }
-  function flush() {
-    if (!buf.length) return;
-    const batch = buf.splice(0);
-    safeSend("KEYS", batch); // background에서 한 번에 처리
+  // ---- 누적/상태 ----
+  let lastX = null, lastY = null, lastMoveTs = 0;
+  let cumScroll = 0;
+
+  function pushMove(e) {
+    const now = performance.now();
+    if (enabledSampling && (now - lastMoveTs) < moveThrottleMs) return;
+
+    const x = e.clientX;
+    const y = e.clientY;
+
+    let speed = "";
+    if (lastX !== null && lastY !== null) {
+      const dx = x - lastX;
+      const dy = y - lastY;
+      const dist = Math.hypot(dx, dy);
+      if (minStep2px && dist < 2) return; // 너무 작은 흔들림 무시
+      speed = dist.toFixed(2);
+    }
+
+    lastMoveTs = now;
+    lastX = x; lastY = y;
+
+    // move: x, y, speed_per_step 만 채움
+    safeSend({ kind: 'MOUSE', payload: { x, y, speed_per_step: speed } }) ||
+      safeSend({ type: 'MOUSE_EVENT', payload: { x, y, speed_per_step: speed } }); // 구버전 호환(선택)
   }
 
-  addEventListener("keydown", onKey, { passive: true });
-  addEventListener("keyup",   onKey, { passive: true });
-  addEventListener("beforeinput", onBeforeInput, { passive: true, capture: true });
-  addEventListener("input",        onInput,      { passive: true, capture: true });
-  addEventListener("compositionend", onCompositionEnd, { passive: true });
+  function pushClick(e) {
+    let button = '';
+    if (e.button === 0) button = 'l';
+    else if (e.button === 1) button = 'm';
+    else if (e.button === 2) button = 'r';
 
-  const timer = setInterval(flush, FLUSH_MS);
-  addEventListener("pagehide", flush);
-  addEventListener("beforeunload", flush);
-  addEventListener("unload", () => clearInterval(timer));
+    // click: button + 클릭 순간 좌표
+    safeSend({ kind: 'MOUSE', payload: { button, x: e.clientX, y: e.clientY } }) ||
+      safeSend({ type: 'MOUSE_EVENT', payload: { button, x: e.clientX, y: e.clientY } });
+  }
+
+  function pushWheel(e) {
+    // amount: 위 + / 아래 - (deltaY 기준), cum_scroll: 세션 누적
+    const amount = -e.deltaY;
+    cumScroll += amount;
+
+    safeSend({ kind: 'MOUSE', payload: { amount: Math.round(amount), cum_scroll: Math.round(cumScroll) } }) ||
+      safeSend({ type: 'MOUSE_EVENT', payload: { amount: Math.round(amount), cum_scroll: Math.round(cumScroll) } });
+  }
+
+  function onMouseMove(e){ try{ pushMove(e); }catch{} }
+  function onMouseDown(e){ try{ pushClick(e);}catch{} }
+  function onWheel(e){ try{ pushWheel(e);}catch{} }
+
+  function detachAll() {
+    try { window.removeEventListener('mousemove', onMouseMove, { passive: true }); } catch {}
+    try { window.removeEventListener('mousedown', onMouseDown, { passive: true }); } catch {}
+    try { window.removeEventListener('wheel', onWheel, { passive: true }); } catch {}
+  }
+
+  window.addEventListener('mousemove', onMouseMove, { passive: true });
+  window.addEventListener('mousedown', onMouseDown, { passive: true });
+  window.addEventListener('wheel', onWheel, { passive: true });
+
+  window.addEventListener('beforeunload', () => { cumScroll = 0; });
 })();
