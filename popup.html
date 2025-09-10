@@ -1,33 +1,39 @@
 <!doctype html>
 <html lang="ko">
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>키보드·마우스 CSV 내보내기</title>
-<style>
-  :root{--bg1:#f6f3ff;--bg2:#e9f0ff;--card:#ffffffaa;--border:#e8e8ff;--text:#2b2b2f;--sub:#6b6b78;--lav:#c9a9ff;--lav-dark:#b38cff;}
-  *{box-sizing:border-box} html,body{height:100%}
-  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;color:var(--text);
-    background:radial-gradient(1200px 700px at 20% 10%, var(--bg2), transparent 60%), radial-gradient(1000px 600px at 80% 90%, #fdf0ff, transparent 60%), linear-gradient(180deg, var(--bg1), #ffffff);
-    display:grid;place-items:center;padding:24px;}
-  .card{width:min(620px,94vw);background:var(--card);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:20px;padding:24px 24px 28px;
-    box-shadow:0 30px 80px rgba(120,80,200,.15),0 10px 30px rgba(90,110,255,.10);}
-  h1{margin:0 0 8px;font-size:24px;font-weight:800;background:linear-gradient(90deg,#6d47ff,#c56fff 60%,#ff98e0);-webkit-background-clip:text;background-clip:text;color:transparent}
-  p{margin:0 0 16px;color:var(--sub);font-size:14px}
-  .row{display:flex;gap:10px;flex-wrap:wrap}
-  button{appearance:none;border:none;cursor:pointer;outline:none;font-size:15px;font-weight:700;padding:12px 16px;border-radius:12px;color:#fff;background:linear-gradient(180deg,#6c5ce7,#5a4de0)}
-  .green{background:linear-gradient(180deg,#00b894,#00a883)} .red{background:linear-gradient(180deg,#ffbaba,#ffbaba)}
-</style>
+<head>
+  <meta charset="utf-8" />
+  <title>Mouse CSV Logger</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans KR", sans-serif; margin: 14px; width: 300px; }
+    h3 { margin: 0 0 10px; }
+    .row { display: flex; gap: 8px; margin: 8px 0; align-items: center; flex-wrap: wrap; }
+    button { padding: 8px 10px; border-radius: 8px; border: 1px solid #ddd; cursor: pointer; background: #fff; }
+    .sep { height: 1px; background: #eee; margin: 10px 0; }
+    .status { font-size: 12px; color: #555; }
+    .count { font-weight: 600; }
+    label { font-size: 12px; color: #333; display: flex; gap: 6px; align-items: center; }
+  </style>
+</head>
+<body>
+  <h3>Mouse CSV Logger</h3>
 
-<div class="card">
-  <h1>키보드·마우스 CSV 내보내기</h1>
-  <p>일반 웹페이지에서 활동을 수집합니다(Chrome 내부 페이지/웹스토어/PDF는 제외).</p>
-  <div class="row" style="margin-top:6px">
-    <button id="expMouse">마우스 좌표 CSV</button>
-    <button id="expKeys"  class="green">키 이벤트 CSV</button>
-    <button id="expText">텍스트 커밋 CSV</button>
-    <button id="clear"    class="red">버퍼 비우기</button>
+  <div class="row">
+    <button id="exportBtn">CSV 내보내기</button>
+    <button id="clearBtn">초기화</button>
   </div>
-</div>
 
-<script src="popup.js"></script>
+  <div class="row">
+    <label><input type="checkbox" id="throttleMove" checked> 이동 샘플링(약 20Hz)</label>
+    <label><input type="checkbox" id="minStep" checked> 2px 미만 이동 무시</label>
+  </div>
+
+  <div class="sep"></div>
+
+  <div class="status">
+    상태: <span id="status">자동 기록 중</span><br/>
+    수집 이벤트: <span class="count" id="eventCount">0</span> 개
+  </div>
+
+  <script src="popup.js"></script>
+</body>
 </html>
