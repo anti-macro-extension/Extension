@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="ko">
+<<<<<<< HEAD
 <head>
   <meta charset="utf-8" />
   <title>Mouse CSV Logger</title>
@@ -20,6 +21,35 @@
   <div class="row">
     <button id="exportBtn">CSV 내보내기</button>
     <button id="clearBtn">초기화</button>
+=======
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>키보드·마우스 CSV 내보내기</title>
+<style>
+  :root{--bg1:#f6f3ff;--bg2:#e9f0ff;--card:#ffffffaa;--border:#e8e8ff;--text:#2b2b2f;--sub:#6b6b78;}
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;color:var(--text);
+    background:linear-gradient(180deg, var(--bg1), #ffffff);
+    display:grid;place-items:center;padding:24px;}
+  .card{width:min(620px,94vw);background:var(--card);backdrop-filter:blur(10px);
+    border:1px solid var(--border);border-radius:20px;padding:24px 24px 28px;}
+  h1{margin:0 0 12px;font-size:22px;font-weight:800;color:#4b3cc4}
+  p{margin:0 0 16px;color:var(--sub);font-size:14px}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  button{appearance:none;border:none;cursor:pointer;font-size:14px;font-weight:700;
+    padding:10px 14px;border-radius:10px;color:#fff;background:#6c5ce7}
+  .green{background:#00a883} .red{background:#ff6b6b}
+</style>
+
+<div class="card">
+  <h1>키보드·마우스 CSV 내보내기</h1>
+  <p>일반 웹페이지에서 활동을 수집합니다.</p>
+  <div class="row">
+    <button id="expMouse">마우스 좌표 CSV</button>
+    <button id="expKeys"  class="green">키 이벤트 CSV</button>
+    <button id="expText">텍스트 커밋 CSV</button>
+    <button id="clear"    class="red">버퍼 비우기</button>
+>>>>>>> 464215f (feature/mouse)
   </div>
 
   <div class="row">

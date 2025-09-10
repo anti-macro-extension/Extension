@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 const exportBtn = document.getElementById('exportBtn');
 const clearBtn = document.getElementById('clearBtn');
 const throttleMoveEl = document.getElementById('throttleMove');
@@ -13,6 +14,13 @@ function sendMessage(msg, cb) {
     const err = chrome.runtime.lastError?.message;
     if (err) {
       alert("메시지 오류: " + err);
+=======
+// popup.html 전용 — 버튼 wiring
+(function(){
+  function send(kind, payload){
+    if (!chrome?.runtime?.id) {
+      alert("확장 컨텍스트가 아닙니다. 툴바 팝업으로 열어주세요.");
+>>>>>>> 464215f (feature/mouse)
       return;
     }
     cb && cb(resp);
