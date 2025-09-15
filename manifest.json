@@ -1,17 +1,30 @@
 {
   "manifest_version": 3,
   "name": "Mouse CSV Logger",
-  "version": "0.3.0",
-  "description": "크롬 실행과 동시에 마우스 이벤트를 자동 수집하고, 아이콘 클릭으로 CSV를 내보냅니다.",
-  "permissions": ["downloads", "storage", "tabs", "scripting"],
+  "version": "0.3.1",
+  "description": "크롬 실행과 동시에 마우스/키보드(IME 안전) 이벤트를 수집하고 CSV로 내보냅니다.",
+  "permissions": ["downloads", "storage", "tabs", "scripting", "webNavigation"],
   "host_permissions": ["<all_urls>"],
-  "background": { "service_worker": "background.js" },
-  "action": { "default_popup": "popup.html", "default_title": "Mouse CSV Logger" },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Mouse CSV Logger"
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
       "js": ["keyboard.js"],
+      "all_frames": true,
       "run_at": "document_start"
     }
-  ]
+  ],
+  "commands": {
+    "toggle-force-jamo": {
+      "suggested_key": { "default": "Ctrl+Shift+J" },
+      "description": "Toggle force jamo capture"
+    }
+  }
 }
