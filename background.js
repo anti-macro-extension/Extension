@@ -108,27 +108,65 @@ function exportTextCommitsCSV(){
 }
 
 
-function exportMouseCSV(){
+function exportMouseJSON(){
+  // 시간 순 정렬
   const rows = [...mousePosBuf].sort((a,b) => (getMs(a)||0) - (getMs(b)||0));
-  const out = ["timestamp_ms,t_ms,type,x,y,speed_per_step,button,amount,cum_scroll"];
+
+  // 1) 행동 스트림: [m(x,y)] + [c(l|m|r)]
+  let behavior = "";
   for (const r of rows){
-    const ms   = getMs(r);
-    const tms  = typeof r.t === "number" ? r.t.toFixed(3) : "";
-    out.push([
-      Number.isFinite(ms) ? `="${ms}"` : "",
-      tms,
-      escCSV(r.type || "move"),
-      escCSV(r.x),
-      escCSV(r.y),
-      escCSV(r.speed_per_step ?? ""),
-      escCSV(r.button ?? ""),
-      escCSV(r.amount ?? ""),
-      escCSV(r.cum_scroll ?? "")
-    ].join(","));
+    const t = (r.type || "move");
+    if (t === "move"){
+      const x = (r.x != null ? Math.round(r.x) : "");
+      const y = (r.y != null ? Math.round(r.y) : "");
+      if (x !== "" && y !== "") behavior += `[m(${x},${y})]`;
+    } else if (t === "click"){
+      const b = (r.button || "").toString().toLowerCase();
+      const btn = (b === "0" || b === "l") ? "l" : (b === "1" || b === "m") ? "m" : (b === "2" || b === "r") ? "r" : "l";
+      behavior += `[c(${btn})]`;
+    }
+    // down/up/wheel 등은 제외(업로드 파일 포맷과 유사하게 맞춤)
   }
+
+  // 2) 이동 타임스탬프만 콤마 연결
+  const times = rows
+    .filter(r => (r.type || "move") === "move")
+    .map(r => {
+      const ms = getMs(r);
+      return Number.isFinite(ms) ? String(ms) : "";
+    })
+    .filter(Boolean)
+    .join(",");
+
+  const payload = {
+    mousemove_total_behaviour: behavior,
+    mousemove_times:           times
+  };
+
   const ts = new Date().toISOString().replace(/[:.]/g,"-");
-  downloadCSV(`mouse_positions_${ts}.csv`, out);
+  downloadJSON(`mouse_movements_${ts}.json`, payload);
 }
+
+
+function downloadJSON(filename, obj){
+  try{
+    const json = JSON.stringify(obj);
+
+    // 서비스 워커에서는 objectURL 불가 → data URL + base64로 다운로드
+    const u8  = new TextEncoder().encode(json);       // UTF-8 바이트
+    const b64 = bytesToBase64(u8);                    // 이미 파일에 있는 유틸 재사용
+    const url = "data:application/json;charset=utf-8;base64," + b64;
+
+    chrome.downloads.download({ url, filename, saveAs: true }, id => {
+      const err = chrome.runtime.lastError?.message;
+      if (err) console.error("[bg] downloads.download error:", err);
+      else     console.log("[bg] json download started:", id);
+    });
+  }catch(e){
+    console.error("[bg] downloadJSON error:", e);
+  }
+}
+
 
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -149,10 +187,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
     if (msg?.kind === "EXPORT_CSV"){
       sendResponse?.({ ok: true }); 
-      if (msg.what === "mouse") exportMouseCSV();
+      if (msg.what === "mouse") exportMouseJSON();
       else if (msg.what === "keys") exportKeyEventsCSV();   
       else if (msg.what === "text") exportTextCommitsCSV();
-      else exportMouseCSV();
+      else exportMouseJSON();
       return true;
     }
 
